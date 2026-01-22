@@ -1,6 +1,5 @@
 #include "nfa.hpp"
 
-
 bool canStart(char c) {
     if (PRECEDENCE[c] == Prec::LITERAL) return true;
     return c == '(';
@@ -43,9 +42,7 @@ std::vector<Token> regexToPostfix(std::string& expression) {
     bool prevCanEnd = false;
 
     for (char c : expression) {  
-        // handle concat operator
-        
-        // an escape backslash is grouped with the next char
+        // concat operator
         if (c != '\\' || escaped) {
             if ((canStart(c) || escaped) && prevCanEnd) {
                 push(static_cast<char>(Type::CONCAT));
@@ -53,8 +50,7 @@ std::vector<Token> regexToPostfix(std::string& expression) {
             prevCanEnd = canEnd(c) || escaped;
         }
 
-        // handle literals and backslashes
-
+        // literals and backslashes
         if (escaped || PRECEDENCE[c] == Prec::LITERAL) {
             if (c == '\\' && !escaped) {
                 escaped = true;
@@ -66,10 +62,11 @@ std::vector<Token> regexToPostfix(std::string& expression) {
             continue;
         } 
 
-        // handle parentheses and operators
-
+        // parentheses and operators
         if (PRECEDENCE[c] == Prec::PARENTHESES) {
-            if (c == '(') stk.push(c);
+            if (c == '(') {
+                stk.push(c);
+            }
             else {
                 while (!stk.empty() && stk.top() != '(') pop();
 
@@ -84,13 +81,107 @@ std::vector<Token> regexToPostfix(std::string& expression) {
         }
     }
 
-    while (!stk.empty()) pop();
+    while (!stk.empty()) {
+        if (stk.top() == '(') {
+            throw std::runtime_error("No matching )");
+        }
+        pop();
+    }
+
     return res;
+}
+
+void NFA::connect(Fragment& fragment, State* entry) {
+  for (State** outPtr : fragment.exits) {
+        *outPtr = entry;
+    }
+    fragment.exits.clear();
+}
+
+void NFA::concatenate(Fragment& left, Fragment& right) {
+    State* entry = right.entry;
+    connect(left, entry);
+    left.exits = std::move(right.exits);
+}
+
+State* NFA::postfixToNfa(std::vector<Token>& tokens) {
+    std::stack<Fragment, std::vector<Fragment>> fragments;
+
+    for (auto [type, c] : tokens) {
+        if (type == Type::LITERAL) {
+            State* s = makeState(NodeType::LITERAL, c);
+            fragments.push({s, {s->out}}); 
+        }
+        else if (type == Type::CONCAT) {
+            Fragment right = std::move(fragments.top());
+            fragments.pop();
+            concatenate(fragments.top(), right);
+        }
+        else if (type == Type::STAR) {
+            State* s = makeState(NodeType::SPLIT);
+            Fragment& fragment = fragments.top();
+            s->out[0] = fragment.entry;
+
+            while (!fragment.exits.empty()) {
+                *(fragment.exits.back()) = s;
+                fragment.exits.pop_back();
+            }
+
+            fragment.exits.push_back(&s->out[1]);
+            fragment.entry = s;
+        }
+        else if (type == Type::UNION) {
+            State* s = makeState(NodeType::SPLIT);
+
+            Fragment a = std::move(fragments.top());
+            fragments.pop();
+            Fragment b = std::move(fragments.top());
+            fragments.pop();
+
+            s->out[0] = a.entry;
+            s->out[1] = b.entry;
+
+            std::vector<State**> exits = std::move(a.exits);
+            exits.insert(exits.end(), b.exits.begin(),
+                    b.exits.end());
+
+            fragments.push({s, std::move(exits)});
+        }
+        else if (type == Type::DOT) {
+            State* s = makeState(NodeType::WILDCARD);
+            fragments.push({s, {s->out}});
+        }
+        else if (type == Type::QUESTION) {
+            State* s = makeState(NodeType::SPLIT);
+            Fragment& fragment = fragments.top();
+            s->out[0] = fragment.entry;
+
+            fragment.exits.push_back(&s->out[1]);
+            fragment.entry = s;
+        }
+        else if (type == Type::PLUS) {
+            State* s = makeState(NodeType::SPLIT);
+            Fragment& fragment = fragments.top();
+
+            connect(fragment, s);
+            s->out[0] = fragment.entry;
+            fragment.exits.push_back(&s->out[1]);
+        }
+    } 
+
+    State* match = makeState(NodeType::MATCH);
+    connect(fragments.top(), match);
+
+    start = fragments.top().entry;
+    return start;
 }
 
 int main() {
     std::string test; std::cin >> test;
     auto res = regexToPostfix(test);
+    auto res2 = NFA{}.postfixToNfa(res);
+
+    std::cout << res2 << std::endl;
 
     for (auto [type, c] : res) {
         if (type == Type::CONCAT) std::cout << '.';

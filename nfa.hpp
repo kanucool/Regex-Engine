@@ -5,6 +5,9 @@
 #include <array>
 #include <stack>
 #include <iostream>
+#include <memory>
+
+// data structures
 
 enum class Type : char {
     LITERAL,
@@ -29,6 +32,46 @@ struct Token {
     char c;
 };
 
+enum class NodeType : char {
+    LITERAL,
+    SPLIT,
+    MATCH,
+    WILDCARD
+};
+
+struct State {
+    State* out[2] = {nullptr, nullptr};
+    NodeType type;
+    char c;
+
+    State(NodeType type, char c = 0) : type(type), c(c) {}
+};
+
+struct Fragment {
+    State* entry;
+    std::vector<State**> exits;
+};
+
+class NFA {
+private:
+    std::vector<std::unique_ptr<State>> states;
+
+public:
+    State* start;
+
+    State* makeState(NodeType type, char c = 0) {
+        auto uPtr = std::make_unique<State>(type, c);
+        State* s = uPtr.get();
+        states.push_back(std::move(uPtr));
+        return s;
+    }
+
+    void connect(Fragment& fragment, State* entry);
+    void concatenate(Fragment& left, Fragment& right);
+    State* postfixToNfa(std::vector<Token>& tokens);
+};
+    
+
 constexpr std::array<Prec, 128> getPrecedenceArray() {
     std::array<Prec, 128> precedence = {};
     
@@ -43,4 +86,8 @@ constexpr std::array<Prec, 128> getPrecedenceArray() {
 }
 
 constexpr auto PRECEDENCE = getPrecedenceArray();
+
+// function declarations
+
+std::vector<Token> regexToPostfix(std::string&);
 
