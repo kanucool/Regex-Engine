@@ -6,6 +6,7 @@
 #include <stack>
 #include <iostream>
 #include <memory>
+#include <unordered_set>
 
 // data structures
 
@@ -69,9 +70,14 @@ public:
     void connect(Fragment& fragment, State* entry);
     void concatenate(Fragment& left, Fragment& right);
     State* postfixToNfa(std::vector<Token>& tokens);
+
+    NFA() = default;
+
+    NFA(std::vector<Token>& tokens) {
+        start = postfixToNfa(tokens);
+    }
 };
     
-
 constexpr std::array<Prec, 128> getPrecedenceArray() {
     std::array<Prec, 128> precedence = {};
     
@@ -90,4 +96,5 @@ constexpr auto PRECEDENCE = getPrecedenceArray();
 // function declarations
 
 std::vector<Token> regexToPostfix(std::string&);
+bool simulateNfa(State*, std::string&);
 

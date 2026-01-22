@@ -57,7 +57,8 @@ std::vector<Token> regexToPostfix(std::string& expression) {
             }
             else {
                 escaped = false;
-                res.push_back({Type::LITERAL, c});
+                Type type = (c == '.') ? Type::DOT : Type::LITERAL;
+                res.push_back({type, c});
             }
             continue;
         } 
@@ -176,18 +177,90 @@ State* NFA::postfixToNfa(std::vector<Token>& tokens) {
     return start;
 }
 
-int main() {
-    std::string test; std::cin >> test;
-    auto res = regexToPostfix(test);
-    auto res2 = NFA{}.postfixToNfa(res);
+bool simulateNfa(State* start, std::string& candidate) {
+    std::unordered_set<State*> states = {start};
+    std::unordered_set<State*> newStates;
+    std::stack<State*> splits;
+    std::unordered_set<State*> visited;
 
-    std::cout << res2 << std::endl;
+    auto push = [&visited, &splits](State* state) {
+        if (visited.find(state) == visited.end()) {
+            visited.insert(state);
+            splits.push(state);
+        }
+    };
+
+    auto expandSplits = [&]() {
+        newStates.clear();
+        visited.clear();
+
+        for (State* state : states) {
+            if (state->type != NodeType::SPLIT) {
+                newStates.insert(state);
+            }
+            else push(state);
+        }
+
+        while (!splits.empty()) {
+            State* state = splits.top();
+            splits.pop();
+            
+            if (state->type != NodeType::SPLIT) {
+                newStates.insert(state);
+            }
+            else {
+                push(state->out[0]);
+                push(state->out[1]);
+            }
+        }
+    };
+
+    for (char c : candidate) {
+
+        if (states.empty()) return false;
+               
+        expandSplits();
+        std::swap(states, newStates);
+        newStates.clear();
+
+        for (State* state : states) {
+
+            if ((state->type != NodeType::MATCH && state->c == c)
+                    || state->type == NodeType::WILDCARD) {
+                newStates.insert(state->out[0]);
+            }
+        }
+
+        std::swap(states, newStates);
+        newStates.clear();
+    }
+
+    expandSplits();
+
+    for (State* state : newStates) {
+        if (state->type == NodeType::MATCH) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+int main() {
+    std::string regex; std::cin >> regex;
+    auto res = regexToPostfix(regex);
 
     for (auto [type, c] : res) {
         if (type == Type::CONCAT) std::cout << '.';
         else std::cout << c;
     }
     std::cout << '\n';
+
+    auto nfa = NFA(res);
+    while (true) {
+        std::string candidate; std::cin >> candidate;
+        std::cout << simulateNfa(nfa.start, candidate) << '\n';
+    }
 
     return 0;
 }
