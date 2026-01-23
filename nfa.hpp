@@ -10,7 +10,7 @@
 
 // data structures
 
-enum class Type : char {
+enum class Type : uint8_t {
     LITERAL,
     CONCAT,
     STAR = '*',
@@ -20,7 +20,7 @@ enum class Type : char {
     PLUS = '+'
 };
 
-enum class Prec : char {
+enum class Prec : uint8_t {
     LITERAL,
     PARENTHESES,
     LOW,
@@ -30,10 +30,10 @@ enum class Prec : char {
 
 struct Token {
     Type type;
-    char c;
+    uint8_t c;
 };
 
-enum class NodeType : char {
+enum class NodeType : uint8_t {
     LITERAL,
     SPLIT,
     MATCH,
@@ -43,9 +43,9 @@ enum class NodeType : char {
 struct State {
     State* out[2] = {nullptr, nullptr};
     NodeType type;
-    char c;
+    uint8_t c;
 
-    State(NodeType type, char c = 0) : type(type), c(c) {}
+    State(NodeType type, uint8_t c = 0) : type(type), c(c) {}
 };
 
 struct Fragment {
@@ -60,7 +60,7 @@ private:
 public:
     State* start;
 
-    State* makeState(NodeType type, char c = 0) {
+    State* makeState(NodeType type, uint8_t c = 0) {
         auto uPtr = std::make_unique<State>(type, c);
         State* s = uPtr.get();
         states.push_back(std::move(uPtr));
@@ -69,23 +69,23 @@ public:
 
     void connect(Fragment& fragment, State* entry);
     void concatenate(Fragment& left, Fragment& right);
-    State* postfixToNfa(std::vector<Token>& tokens);
+    State* postfixToNfa(const std::vector<Token>& tokens);
 
     NFA() = default;
 
-    NFA(std::vector<Token>& tokens) {
+    NFA(const std::vector<Token>& tokens) {
         start = postfixToNfa(tokens);
     }
 };
     
-constexpr std::array<Prec, 128> getPrecedenceArray() {
-    std::array<Prec, 128> precedence = {};
+constexpr std::array<Prec, 256> getPrecedenceArray() {
+    std::array<Prec, 256> precedence = {};
     
-    precedence[static_cast<char>(Type::UNION)] = Prec::LOW;
-    precedence[static_cast<char>(Type::CONCAT)] = Prec::MEDIUM;
-    precedence[static_cast<char>(Type::STAR)] = Prec::HIGH;
-    precedence[static_cast<char>(Type::QUESTION)] = Prec::HIGH;
-    precedence[static_cast<char>(Type::PLUS)] = Prec::HIGH;
+    precedence[static_cast<uint8_t>(Type::UNION)] = Prec::LOW;
+    precedence[static_cast<uint8_t>(Type::CONCAT)] = Prec::MEDIUM;
+    precedence[static_cast<uint8_t>(Type::STAR)] = Prec::HIGH;
+    precedence[static_cast<uint8_t>(Type::QUESTION)] = Prec::HIGH;
+    precedence[static_cast<uint8_t>(Type::PLUS)] = Prec::HIGH;
     precedence['('] = precedence[')'] = Prec::PARENTHESES;
 
     return precedence;
@@ -95,6 +95,8 @@ constexpr auto PRECEDENCE = getPrecedenceArray();
 
 // function declarations
 
-std::vector<Token> regexToPostfix(std::string&);
-bool simulateNfa(State*, std::string&);
+bool canStart(uint8_t);
+bool canEnd(uint8_t);
+std::vector<Token> regexToPostfix(const std::string&);
+bool simulateNfa(State*, const std::string&);
 

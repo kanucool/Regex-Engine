@@ -1,27 +1,27 @@
 #include "nfa.hpp"
 
-bool canStart(char c) {
+bool canStart(uint8_t c) {
     if (PRECEDENCE[c] == Prec::LITERAL) return true;
     return c == '(';
 }
 
-bool canEnd(char c) {
+bool canEnd(uint8_t c) {
     if (PRECEDENCE[c] == Prec::LITERAL) return true;
     if (c == '*' || c == '?' || c == '.') return true;
     if (c == '+' || c == ')') return true;
     return false;
 }
 
-std::vector<Token> regexToPostfix(std::string& expression) {
+std::vector<Token> regexToPostfix(const std::string& expression) {
 
     std::vector<Token> res;
-    std::stack<char, std::vector<char>> stk;
+    std::stack<uint8_t, std::vector<uint8_t>> stk;
 
-    auto push = [&stk, &res](char c) {
+    auto push = [&stk, &res](uint8_t c) {
         Prec prec = PRECEDENCE[c];
 
         while (!stk.empty() && PRECEDENCE[stk.top()] >= prec) {
-            char op = stk.top();
+            uint8_t op = stk.top();
             res.push_back({static_cast<Type>(op), op});
             stk.pop();
         }
@@ -30,7 +30,7 @@ std::vector<Token> regexToPostfix(std::string& expression) {
     };
 
     auto pop = [&stk, &res]() {
-        char op = stk.top();
+        uint8_t op = stk.top();
         if (op == ')') {
             throw std::runtime_error("unmatched (");
         }
@@ -41,11 +41,11 @@ std::vector<Token> regexToPostfix(std::string& expression) {
     bool escaped = false;
     bool prevCanEnd = false;
 
-    for (char c : expression) {  
+    for (uint8_t c : expression) {  
         // concat operator
         if (c != '\\' || escaped) {
             if ((canStart(c) || escaped) && prevCanEnd) {
-                push(static_cast<char>(Type::CONCAT));
+                push(static_cast<uint8_t>(Type::CONCAT));
             }
             prevCanEnd = canEnd(c) || escaped;
         }
@@ -105,7 +105,7 @@ void NFA::concatenate(Fragment& left, Fragment& right) {
     left.exits = std::move(right.exits);
 }
 
-State* NFA::postfixToNfa(std::vector<Token>& tokens) {
+State* NFA::postfixToNfa(const std::vector<Token>& tokens) {
     std::stack<Fragment, std::vector<Fragment>> fragments;
 
     for (auto [type, c] : tokens) {
@@ -177,7 +177,7 @@ State* NFA::postfixToNfa(std::vector<Token>& tokens) {
     return start;
 }
 
-bool simulateNfa(State* start, std::string& candidate) {
+bool simulateNfa(State* start, const std::string& candidate) {
     std::unordered_set<State*> states = {start};
     std::unordered_set<State*> newStates;
     std::stack<State*> splits;
@@ -215,7 +215,7 @@ bool simulateNfa(State* start, std::string& candidate) {
         }
     };
 
-    for (char c : candidate) {
+    for (uint8_t c : candidate) {
 
         if (states.empty()) return false;
                
@@ -244,24 +244,5 @@ bool simulateNfa(State* start, std::string& candidate) {
     }
 
     return false;
-}
-
-int main() {
-    std::string regex; std::cin >> regex;
-    auto res = regexToPostfix(regex);
-
-    for (auto [type, c] : res) {
-        if (type == Type::CONCAT) std::cout << '.';
-        else std::cout << c;
-    }
-    std::cout << '\n';
-
-    auto nfa = NFA(res);
-    while (true) {
-        std::string candidate; std::cin >> candidate;
-        std::cout << simulateNfa(nfa.start, candidate) << '\n';
-    }
-
-    return 0;
 }
 
