@@ -10,7 +10,7 @@
 
 // constants
 
-constexpr int NFA_ARENA_SIZE = 25;
+constexpr int NFA_ARENA_SIZE = 64;
 
 // data structures
 

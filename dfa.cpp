@@ -1,9 +1,9 @@
 #include "dfa.hpp"
 
-void DFA::expandAndClean(NfaSet& nfaSet) {
+void DFA::expandAndClean(std::vector<State*>& nfaStates) {
 
     nfaVisited.clear();
-    clearSet(newSet);
+    newStates.clear();
 
     std::unordered_set<State*>& lVisited = nfaVisited;
     std::stack<State*>& lSplits = splits;
@@ -15,10 +15,9 @@ void DFA::expandAndClean(NfaSet& nfaSet) {
         }
     };
 
-    for (State* state : nfaSet.nfaStates) {
+    for (State* state : nfaStates) {
         if (state->type != NodeType::SPLIT) {
-            registerNfaState(state);
-            addNfaStateToSet(newSet, state);
+            newStates.push_back(state);
         }
         else push(state);
     }
@@ -28,8 +27,7 @@ void DFA::expandAndClean(NfaSet& nfaSet) {
         splits.pop();
         
         if (state->type != NodeType::SPLIT) {
-            registerNfaState(state);
-            addNfaStateToSet(newSet, state);
+            newStates.push_back(state);
         }
         else {
             push(state->out[0]);
@@ -37,8 +35,8 @@ void DFA::expandAndClean(NfaSet& nfaSet) {
         }
     }
 
-    nfaSet = std::move(newSet);
-    cleanSet(nfaSet);
+    nfaStates = std::move(newStates);
+    cleanSet(nfaStates);
 }
 
 DfaState* DFA::makeDfa(State* startState) {
@@ -46,44 +44,40 @@ DfaState* DFA::makeDfa(State* startState) {
     clearDfa();
     if (!startState) return nullptr;
 
-    NfaSet buckets[256];
+    std::vector<State*> buckets[256];
  
     DfaState* ans = createEmptyState();
     this->start = ans;
 
-    NfaSet startSet;
-    registerNfaState(startState);
-    addNfaStateToSet(startSet, startState);
+    std::vector<State*> startStates;
+    startStates.push_back(startState);
 
-    expandAndClean(startSet);
-    insertNfaSet(startSet, ans);
+    expandAndClean(startStates);
+    nfaSetMap[startStates] = ans;
 
-    std::stack<std::pair<DfaState*, NfaSet>> stk;
-    stk.push({ans, std::move(startSet)});
+    std::stack<std::pair<DfaState*, std::vector<State*>>> stk;
+    stk.push({ans, std::move(startStates)});
 
     while (!stk.empty()) {
         DfaState* newState = stk.top().first;
-        NfaSet nfaSet = std::move(stk.top().second);
+        std::vector<State*> nfaStates = std::move(stk.top().second);
         stk.pop();
 
-        newState->nfaSet = std::move(nfaSet);
+        newState->nfaStates = std::move(nfaStates);
 
         for (int i = 0; i < 256; i++) {
-            clearSet(buckets[i]);
+            buckets[i].clear();
         }
         
-        for (State* nfaState : newState->nfaSet.nfaStates) {
+        for (State* nfaState : newState->nfaStates) {
             if (nfaState->type == NodeType::LITERAL) {
-                registerNfaState(nfaState->out[0]);
-                addNfaStateToSet(buckets[nfaState->c],
-                                    nfaState->out[0]);
+                buckets[nfaState->c].push_back(nfaState->out[0]);
             }
             else if (nfaState->type == NodeType::WILDCARD) {
                 State* out = nfaState->out[0];
-                registerNfaState(out);
 
                 for (int i = 0; i < 256; i++) {
-                    addNfaStateToSet(buckets[i], out);
+                    buckets[i].push_back(out);
                 }
             }
             else if (nfaState->type == NodeType::MATCH) {
@@ -92,14 +86,16 @@ DfaState* DFA::makeDfa(State* startState) {
         }
 
         for (int i = 0; i < 256; i++) {
+            if (buckets[i].empty()) continue;
+
             expandAndClean(buckets[i]);
 
-            newState->neighbors[i] = getDfaFromNfaSet(buckets[i]);
+            newState->neighbors[i] = nfaSetMap[buckets[i]];
             
             if (!newState->neighbors[i]) {
                 DfaState* neighborState = createEmptyState();
 
-                insertNfaSet(buckets[i], neighborState);
+                nfaSetMap[buckets[i]] = neighborState;
                 newState->neighbors[i] = neighborState;
 
                 stk.push({neighborState, std::move(buckets[i])});
