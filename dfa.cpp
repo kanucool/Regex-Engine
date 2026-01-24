@@ -1,9 +1,9 @@
 #include "dfa.hpp"
 
-void DFA::expandAndClean(std::vector<State*>& nfaStates) {
+void DFA::expandAndClean(NfaSet& nfaSet) {
 
     nfaVisited.clear();
-    newStates.clear();
+    clearSet(newSet);
 
     std::unordered_set<State*>& lVisited = nfaVisited;
     std::stack<State*>& lSplits = splits;
@@ -15,9 +15,10 @@ void DFA::expandAndClean(std::vector<State*>& nfaStates) {
         }
     };
 
-    for (State* state : nfaStates) {
+    for (State* state : nfaSet.nfaStates) {
         if (state->type != NodeType::SPLIT) {
-            newStates.push_back(state);
+            registerNfaState(state);
+            addNfaStateToSet(newSet, state);
         }
         else push(state);
     }
@@ -27,7 +28,8 @@ void DFA::expandAndClean(std::vector<State*>& nfaStates) {
         splits.pop();
         
         if (state->type != NodeType::SPLIT) {
-            newStates.push_back(state);
+            registerNfaState(state);
+            addNfaStateToSet(newSet, state);
         }
         else {
             push(state->out[0]);
@@ -35,45 +37,53 @@ void DFA::expandAndClean(std::vector<State*>& nfaStates) {
         }
     }
 
-    std::swap(nfaStates, newStates);
-    std::sort(nfaStates.begin(), nfaStates.end());
-    auto last = std::unique(nfaStates.begin(), nfaStates.end());
-    nfaStates.erase(last, nfaStates.end());
+    nfaSet = std::move(newSet);
+    cleanSet(nfaSet);
 }
 
-DfaState* DFA::makeDfa(std::vector<State*> startStates) {
+DfaState* DFA::makeDfa(State* startState) {
+    
+    clearDfa();
+    if (!startState) return nullptr;
 
-    std::vector<State*> buckets[256];
+    NfaSet buckets[256];
  
     DfaState* ans = createEmptyState();
     this->start = ans;
-    
-    expandAndClean(startStates);
-    nfaSetMap[startStates] = ans;
 
-    std::stack<std::pair<DfaState*, std::vector<State*>>> stk;
-    stk.push({ans, std::move(startStates)});
+    NfaSet startSet;
+    registerNfaState(startState);
+    addNfaStateToSet(startSet, startState);
+
+    expandAndClean(startSet);
+    insertNfaSet(startSet, ans);
+
+    std::stack<std::pair<DfaState*, NfaSet>> stk;
+    stk.push({ans, std::move(startSet)});
 
     while (!stk.empty()) {
         DfaState* newState = stk.top().first;
-        auto nfaStates = std::move(stk.top().second);
+        NfaSet nfaSet = std::move(stk.top().second);
         stk.pop();
 
-        newState->NfaStates = nfaStates;
+        newState->nfaSet = std::move(nfaSet);
 
         for (int i = 0; i < 256; i++) {
-            buckets[i].clear();
+            clearSet(buckets[i]);
         }
         
-        for (State* nfaState : newState->NfaStates) {
+        for (State* nfaState : newState->nfaSet.nfaStates) {
             if (nfaState->type == NodeType::LITERAL) {
-                buckets[nfaState->c].push_back(nfaState->out[0]);
+                registerNfaState(nfaState->out[0]);
+                addNfaStateToSet(buckets[nfaState->c],
+                                    nfaState->out[0]);
             }
             else if (nfaState->type == NodeType::WILDCARD) {
                 State* out = nfaState->out[0];
+                registerNfaState(out);
 
                 for (int i = 0; i < 256; i++) {
-                    buckets[i].push_back(out);
+                    addNfaStateToSet(buckets[i], out);
                 }
             }
             else if (nfaState->type == NodeType::MATCH) {
@@ -84,13 +94,12 @@ DfaState* DFA::makeDfa(std::vector<State*> startStates) {
         for (int i = 0; i < 256; i++) {
             expandAndClean(buckets[i]);
 
-            if (nfaSetMap.find(buckets[i]) != nfaSetMap.end()) {
-                newState->neighbors[i] = nfaSetMap[buckets[i]];
-            }
-            else {
+            newState->neighbors[i] = getDfaFromNfaSet(buckets[i]);
+            
+            if (!newState->neighbors[i]) {
                 DfaState* neighborState = createEmptyState();
 
-                nfaSetMap[buckets[i]] = neighborState;
+                insertNfaSet(buckets[i], neighborState);
                 newState->neighbors[i] = neighborState;
 
                 stk.push({neighborState, std::move(buckets[i])});

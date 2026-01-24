@@ -44,6 +44,7 @@ int main() {
             }
         }
         else if (response == '4') break;
+        else if (response == '5') std::cout << evaluator.getDfa().numStates() << std::endl;
 
         auto end = std::chrono::high_resolution_clock::now();
         std::chrono::duration<double> diff = end - start;

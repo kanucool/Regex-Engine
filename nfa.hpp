@@ -8,6 +8,10 @@
 #include <memory>
 #include <unordered_set>
 
+// constants
+
+constexpr int NFA_ARENA_SIZE = 25;
+
 // data structures
 
 enum class Type : uint8_t {
@@ -43,7 +47,10 @@ enum class NodeType : uint8_t {
 struct State {
     State* out[2] = {nullptr, nullptr};
     NodeType type;
+    uint64_t compressionID = ULLONG_MAX;
     uint8_t c;
+
+    State() = default;
 
     State(NodeType type, uint8_t c = 0) : type(type), c(c) {}
 };
@@ -55,16 +62,22 @@ struct Fragment {
 
 class NFA {
 private:
-    std::vector<std::unique_ptr<State>> states;
+    int arenaIdx = NFA_ARENA_SIZE;
+    std::vector<std::unique_ptr<State[]>> stateArenas;
 
 public:
     State* start = nullptr;
 
     State* makeState(NodeType type, uint8_t c = 0) {
-        auto uPtr = std::make_unique<State>(type, c);
-        State* s = uPtr.get();
-        states.push_back(std::move(uPtr));
-        return s;
+
+        if (arenaIdx >= NFA_ARENA_SIZE) {
+            auto uPtr = std::make_unique<State[]>(NFA_ARENA_SIZE);
+            stateArenas.push_back(std::move(uPtr));
+            arenaIdx = 0;
+        }
+        
+        stateArenas.back()[arenaIdx] = State(type, c);
+        return &stateArenas.back()[arenaIdx++];
     }
 
     void connect(Fragment& fragment, State* entry);

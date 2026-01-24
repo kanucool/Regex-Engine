@@ -33,7 +33,10 @@ public:
 
     Regex() = default;
 
-    void setRegex(const std::string& regex, bool makeDfa = true) {
+    DFA& getDfa() {return dfa;}
+    NFA& getNfa() {return nfa;}
+
+    void setRegex(const std::string& regex, bool makeDfa = false) {
         this->regex = regex;
         nfa = NFA(regexToPostfix(regex));
         if (makeDfa) dfa = DFA(nfa);
