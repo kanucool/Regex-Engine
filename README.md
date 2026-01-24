@@ -6,10 +6,6 @@ A high-performance Regex engine written from scratch in C++20. It compiles regul
 * **Operators:** `*` (Kleene Star), `+` (Plus), `?` (Optional), `|` (Union).
 * **Special Characters:** `.` (Wildcard), `()` (Grouping).
 
-## Optimizations
-* **Paged Memory Arena:** Allocates graph nodes in pages to mitigate heap fragmentation and improve cache locality.
-* **Bitmasking:** Uses a `std::bitset` for faster set lookups during DFA construction, migrating to `std::vector` keys mid-construction if state count exceeds an adjustable threshold.
-
 ## Build & Run
 
 **Requires:** `g++` (C++20 support) and `make`.
