@@ -43,6 +43,7 @@ DfaState* DFA::makeDfa(State* startState) {
     
     clearDfa();
     if (!startState) return nullptr;
+    nfaSetMap.reserve(NFA_RESERVE);
 
     std::vector<State*> buckets[256];
  

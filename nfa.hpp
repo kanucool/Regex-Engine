@@ -47,7 +47,6 @@ enum class NodeType : uint8_t {
 struct State {
     State* out[2] = {nullptr, nullptr};
     NodeType type;
-    uint64_t compressionID = ULLONG_MAX;
     uint8_t c;
 
     State() = default;

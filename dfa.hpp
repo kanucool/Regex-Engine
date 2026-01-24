@@ -7,9 +7,12 @@
 #include <algorithm>
 #include <bitset>
 
+#include<unordered_dense.h>
+
 // constants
 
 constexpr int DFA_ARENA_SIZE = 512;
+constexpr int NFA_RESERVE = 2048;
 
 // data structures
 
@@ -25,13 +28,6 @@ struct PtrVecHash {
     }
 };
 
-struct PtrVecEquality {
-    template <typename T>
-    bool operator()(const std::vector<T*>& a, const std::vector<T*>& b) const {
-        return a.size() == b.size() && std::equal(a.begin(), a.end(), b.begin());
-    }
-};
-
 struct DfaState {
     DfaState* neighbors[256] = {nullptr};
     std::vector<State*> nfaStates;
@@ -43,8 +39,12 @@ private:
     int arenaIdx = DFA_ARENA_SIZE;
     std::vector<std::unique_ptr<DfaState[]>> stateArenas;
 
-    std::unordered_map<std::vector<State*>, DfaState*,
-                       PtrVecHash, PtrVecEquality> nfaSetMap;
+    ankerl::unordered_dense::map<std::vector<State*>, DfaState*,
+                                 PtrVecHash,
+                                 std::equal_to<std::vector<State*>>> nfaSetMap;
+
+    //std::unordered_map<std::vector<State*>, DfaState*,
+                       //PtrVecHash, PtrVecEquality> nfaSetMap;
 
     // for expandAndClean
     std::unordered_set<State*> nfaVisited;
