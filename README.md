@@ -26,3 +26,5 @@ make
 * Character classes ([a-z], [0-9], etc)
 * Comprehensive test suite
 * Benchmark against std::regex
+* Refactor file structure
+* Extend support for Unicode
