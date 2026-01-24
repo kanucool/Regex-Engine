@@ -21,6 +21,9 @@ make
 # Run the CLI
 ./main
 ```
+## Resources
+* [Regular Expression Matching Can Be Simple And Fast](https://swtch.com/~rsc/regexp/regexp1.html)
+* [Shunting Yard Algorithm](https://en.wikipedia.org/wiki/Shunting_yard_algorithm)
 
 ## Roadmap
 * Character classes ([a-z], [0-9], etc)
