@@ -178,6 +178,8 @@ State* NFA::postfixToNfa(const std::vector<Token>& tokens) {
 }
 
 bool simulateNfa(State* start, const std::string& candidate) {
+    if (!start) return candidate.empty();
+
     std::unordered_set<State*> states = {start};
     std::unordered_set<State*> newStates;
     std::stack<State*> splits;

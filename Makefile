@@ -3,7 +3,7 @@ CXXFLAGS := -std=c++20 -Wall -Werror
 
 SRCS := $(wildcard *.cpp)
 OBJS := $(SRCS:.cpp=.o)
-TARGET := dfa
+TARGET := main
 
 all: $(TARGET)
 

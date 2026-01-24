@@ -58,7 +58,7 @@ private:
     std::vector<std::unique_ptr<State>> states;
 
 public:
-    State* start;
+    State* start = nullptr;
 
     State* makeState(NodeType type, uint8_t c = 0) {
         auto uPtr = std::make_unique<State>(type, c);

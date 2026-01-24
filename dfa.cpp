@@ -102,7 +102,7 @@ DfaState* DFA::makeDfa(std::vector<State*> startStates) {
 }
 
 bool simulateDfa(DfaState* curr, const std::string& candidate) {
-    if (!curr) return false;
+    if (!curr) return candidate.empty();
 
     for (uint8_t c : candidate) {
         if (!curr->neighbors[c]) return false;
@@ -112,17 +112,3 @@ bool simulateDfa(DfaState* curr, const std::string& candidate) {
     return curr->isMatch;
 }
 
-int main() {
-    std::cout << "regex: ";
-    std::string regex; std::cin >> regex;
-
-    DFA dfa(NFA(regexToPostfix(regex)));
-    
-    while (true) {
-        std::cout << "candidate: ";
-        std::string candidate; std::cin >> candidate;
-        std::cout << simulateDfa(dfa.start, candidate) << std::endl;
-    }
-
-    return 0;
-}

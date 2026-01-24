@@ -24,7 +24,7 @@ private:
     std::stack<State*> splits;
 
 public:
-    DfaState* start;
+    DfaState* start = nullptr;
 
     DfaState* createEmptyState() {
         auto uPtr = std::make_unique<DfaState>();
@@ -35,6 +35,8 @@ public:
 
     void expandAndClean(std::vector<State*>& nfaStates);
     DfaState* makeDfa(std::vector<State*> startStates);
+
+    DFA() = default;
 
     DFA(const NFA& nfa) {
         makeDfa({nfa.start});
