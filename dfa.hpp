@@ -11,8 +11,8 @@
 
 // constants
 
-constexpr int DFA_ARENA_SIZE = 512;
-constexpr int NFA_RESERVE = 2048;
+constexpr int DFA_ARENA_SIZE = 1024;
+constexpr int NFA_RESERVE = 4096;
 
 // data structures
 

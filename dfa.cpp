@@ -107,9 +107,6 @@ DfaState* DFA::makeDfa(State* startState) {
         stateStk.pop();
 
         fillNeighbors(newState);
-
-        // since construction is eager, no need
-        // to keep track of states
         newState->nfaStates.clear();
     }
 
@@ -120,13 +117,10 @@ bool DFA::eval(const std::string& candidate) {
     DfaState* curr = start;
     if (!curr) return candidate.empty();
 
-    int i = 0;
-
     for (uint8_t c : candidate) {
         if (!curr->processed) fillNeighbors(curr);
         if (!curr->neighbors[c]) return false;
         curr = curr->neighbors[c];
-        i++;
     }
 
     if (!curr->processed) fillNeighbors(curr);
