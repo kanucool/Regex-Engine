@@ -7,7 +7,7 @@ A high-performance Regex engine written from scratch in C++20. It compiles regul
 * **Special Characters:** `.` (Wildcard), `()` (Grouping).
 * **Lazy DFA Construction (Optional)**, preventing exponential state explosion.
   * 500ms -> 0.1ms construction for adversarial inputs.
-    * Note: Increases worst-case matching (all nodes traversed are uninitialized) time by 3x (40µs -> 120µs), though performance returns back to baseline on subsequent matches.
+    * Note: Increases worst-case matching (all nodes traversed are uninitialized) time by 256x (256 ASCII neighbors per node), though performance returns back to baseline on subsequent matches. Due to this tradeoff, the Lazy DFA construction is an optional feature.
 
 ## Build & Run
 
