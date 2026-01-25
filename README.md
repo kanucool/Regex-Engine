@@ -5,6 +5,9 @@ A high-performance Regex engine written from scratch in C++20. It compiles regul
 ## Supports
 * **Operators:** `*` (Kleene Star), `+` (Plus), `?` (Optional), `|` (Union).
 * **Special Characters:** `.` (Wildcard), `()` (Grouping).
+* **Lazy DFA Construction (Optional)**, preventing exponential state explosion.
+  * 500ms -> 0.1ms construction for adversarial inputs.
+    * Note: Increases worst-case matching (all nodes traversed are uninitialized) time by 3x (40µs -> 120µs), though performance returns back to baseline on subsequent matches.
 
 ## Build & Run
 
