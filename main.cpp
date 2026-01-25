@@ -33,13 +33,21 @@ int main() {
             std::cout << dfaOrNfa;
 
             std::cin >> choice;
-            
-            start = currTime();
 
             if (choice == "DFA") {
-                evaluator.setRegex(regex, true);
+                std::cout << "eager or lazy? (eager / lazy): ";
+                std::cin >> choice;
+
+                start = currTime();
+                if (choice == "eager") {
+                    evaluator.setRegex(regex, true, false);
+                }
+                else {
+                    evaluator.setRegex(regex, true, true);
+                }
             }
             else {
+                start = currTime();
                 evaluator.setRegex(regex, false);
             }
         }

@@ -7,7 +7,7 @@
 #include <algorithm>
 #include <bitset>
 
-#include<unordered_dense.h>
+#include <unordered_dense.h>
 
 // constants
 
@@ -32,12 +32,18 @@ struct DfaState {
     DfaState* neighbors[256] = {nullptr};
     std::vector<State*> nfaStates;
     bool isMatch = false;
+    bool processed = false;
 };
 
 class DFA {
 private:
+    bool lazy = false;
+
     int arenaIdx = DFA_ARENA_SIZE;
     std::vector<std::unique_ptr<DfaState[]>> stateArenas;
+    std::vector<State*> buckets[256];
+    std::stack<DfaState*, std::vector<DfaState*>> stateStk;
+
 
     ankerl::unordered_dense::map<std::vector<State*>, DfaState*,
                                  PtrVecHash,
@@ -49,7 +55,7 @@ private:
     // for expandAndClean
     std::unordered_set<State*> nfaVisited;
     std::vector<State*> newStates;
-    std::stack<State*> splits;
+    std::stack<State*, std::vector<State*>> splits;
 
 public:
     DfaState* start = nullptr;
@@ -66,25 +72,17 @@ public:
         nfaSetMap.clear();
         nfaVisited.clear();
         newStates.clear();
+
+        for (int i = 0; i < 256; i++) {
+            buckets[i].clear();
+        }
     }
 
     inline void cleanSet(std::vector<State*>& nfaStates) {
         std::sort(nfaStates.begin(), nfaStates.end());
         auto last = std::unique(nfaStates.begin(), nfaStates.end());
         nfaStates.erase(last, nfaStates.end());
-    }
-
-    DfaState* getDfaFromNfaSet(std::vector<State*>& nfaStates) {
-        if (auto it = nfaSetMap.find(nfaStates);
-                          it != nfaSetMap.end()) {
-            return it->second;
-        }
-        return nullptr;
-    }
-
-    void insertNfaSet(std::vector<State*>& nfaStates, DfaState* dfaState) {
-        nfaSetMap[nfaStates] = dfaState;
-    }
+    } 
 
     DfaState* createEmptyState() {
 
@@ -98,16 +96,15 @@ public:
     }
     
     void expandAndClean(std::vector<State*>& nfaStates);
+    void fillNeighbors(DfaState* newState);
     DfaState* makeDfa(State* startState);
+
+    bool eval(const std::string& candidate);
 
     DFA() = default;
 
-    DFA(const NFA& nfa) {
+    DFA(const NFA& nfa, bool lazy = false) : lazy(lazy) {
         makeDfa(nfa.start);
     }
 };
-
-// function declarations
-
-bool simulateDfa(DfaState*, const std::string&);
 

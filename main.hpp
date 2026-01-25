@@ -25,10 +25,10 @@ private:
     std::string regex;
 
 public:
-    Regex(const std::string& regex, bool makeDfa = false) {
+    Regex(const std::string& regex, bool makeDfa = false, bool lazy = false) {
         this->regex = regex;
         nfa = NFA(regexToPostfix(regex));
-        if (makeDfa) dfa = DFA(nfa);
+        if (makeDfa) dfa = DFA(nfa, lazy);
     }
 
     Regex() = default;
@@ -36,10 +36,10 @@ public:
     DFA& getDfa() {return dfa;}
     NFA& getNfa() {return nfa;}
 
-    void setRegex(const std::string& regex, bool makeDfa = false) {
+    void setRegex(const std::string& regex, bool makeDfa = false, bool lazy = false) {
         this->regex = regex;
         nfa = NFA(regexToPostfix(regex));
-        if (makeDfa) dfa = DFA(nfa);
+        if (makeDfa) dfa = DFA(nfa, lazy);
     }
 
     bool eval(const std::string& candidate) {
@@ -50,7 +50,7 @@ public:
     }
 
     bool evalDfa(const std::string& candidate) {
-        return simulateDfa(dfa.start, candidate);
+        return dfa.eval(candidate);
     }
 
     bool evalNfa(const std::string& candidate) {
