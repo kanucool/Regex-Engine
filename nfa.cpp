@@ -1,8 +1,7 @@
 #include "nfa.hpp"
 
 bool canStart(uint8_t c) {
-    if (PRECEDENCE[c] == Prec::LITERAL) return true;
-    return c == '(';
+    return PRECEDENCE[c] == Prec::LITERAL || c == '(';
 }
 
 bool canEnd(uint8_t c) {
@@ -38,55 +37,75 @@ std::vector<Token> regexToPostfix(const std::string& expression) {
         stk.pop();
     };
 
+    auto rightParen = [pop, &stk]() {
+        while (!stk.empty() && stk.top() != '(') pop();
+
+        if (stk.empty()) {
+            throw std::runtime_error("No matching (");
+        }
+        stk.pop();
+    };
+
     bool escaped = false;
     bool prevCanEnd = false;
 
-    for (uint8_t c : expression) {  
-        // concat operator
-        if (c != '\\' || escaped) {
-            if ((canStart(c) || escaped) && prevCanEnd) {
-                push(static_cast<uint8_t>(Type::CONCAT));
-            }
-            prevCanEnd = canEnd(c) || escaped;
-        }
+    bool leftAnchor = !expression.empty() && expression[0] == '^';
 
-        // literals and backslashes
-        if (escaped || PRECEDENCE[c] == Prec::LITERAL) {
-            if (c == '\\' && !escaped) {
-                escaped = true;
-            }
-            else {
-                escaped = false;
-                Type type = (c == '.') ? Type::DOT : Type::LITERAL;
-                res.push_back({type, c});
-            }
+    // if there is no ^ anchor, start with .*(
+    if (!leftAnchor) {
+        res.push_back({Type::DOT, '.'});
+        res.push_back({Type::STAR, '*'});
+        stk.push(static_cast<uint8_t>(Type::CONCAT));
+        stk.push('(');
+    }
+
+    for (uint8_t c : expression) {
+        // backslash and anchors
+        if (!escaped && PRECEDENCE[c] == Prec::SPECIAL) {
+            if (c == '\\') escaped = true;
             continue;
         } 
-
-        // parentheses and operators
-        if (PRECEDENCE[c] == Prec::PARENTHESES) {
-            if (c == '(') {
-                stk.push(c);
-            }
-            else {
-                while (!stk.empty() && stk.top() != '(') pop();
-
-                if (stk.empty()) {
-                    throw std::runtime_error("No matching (");
-                }
-                stk.pop();
-            }
+        
+        // concat operator
+        if ((canStart(c) || escaped) && prevCanEnd) {
+            push(static_cast<uint8_t>(Type::CONCAT));
         }
-        else {
-            push(c);
+        prevCanEnd = canEnd(c) || escaped;
+
+        // literals
+        if (escaped || PRECEDENCE[c] == Prec::LITERAL) {
+            escaped = false;
+            Type type = (c == '.') ? Type::DOT : Type::LITERAL;
+            res.push_back({type, c});
         }
+
+        // parentheses
+        else if (PRECEDENCE[c] == Prec::PARENTHESES) {
+            if (c == '(') stk.push(c);
+            else rightParen();
+        }
+        
+        // operators
+        else push(c);
     }
+
+    // if there is no left anchor, match the prepended (
+    if (!leftAnchor) rightParen();
 
     while (!stk.empty()) {
         if (stk.top() == '(') {
             throw std::runtime_error("No matching )");
         }
         pop();
+    }
+    
+    // if there is no right anchor $, append .*
+    if (expression.empty() || expression.back() != '$') {
+        res.push_back({Type::DOT, '.'}); 
+        res.push_back({Type::STAR, '*'});
+        if (prevCanEnd) {
+            res.push_back({Type::CONCAT, ' '});
+        }
     }
 
     return res;

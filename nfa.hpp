@@ -26,6 +26,7 @@ enum class Type : uint8_t {
 
 enum class Prec : uint8_t {
     LITERAL,
+    SPECIAL,
     PARENTHESES,
     LOW,
     MEDIUM,
@@ -99,6 +100,8 @@ constexpr std::array<Prec, 256> getPrecedenceArray() {
     precedence[static_cast<uint8_t>(Type::QUESTION)] = Prec::HIGH;
     precedence[static_cast<uint8_t>(Type::PLUS)] = Prec::HIGH;
     precedence['('] = precedence[')'] = Prec::PARENTHESES;
+    precedence['\\'] = precedence['^'] = Prec::SPECIAL;
+    precedence['$'] = Prec::SPECIAL;
 
     return precedence;
 }
