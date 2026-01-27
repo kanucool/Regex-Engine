@@ -13,8 +13,8 @@
 
 // constants
 
-constexpr int DFA_ARENA_SIZE = 1024;
-constexpr int NFA_RESERVE = 4096;
+constexpr int DFA_ARENA_SIZE = 4096;
+constexpr int NFA_RESERVE = 65536;
 constexpr char_t MAX_CHAR = std::numeric_limits<char_t>::max();
 
 constexpr bool ADD = true;
@@ -25,36 +25,24 @@ concept Comparable = std::totally_ordered<T>;
 
 // templated functions
 
-// Ankerl hash template - not my original work
+// // hash function is not my original work
 template <>
 struct ankerl::unordered_dense::hash<std::vector<State*>> {
     using is_avalanching = void;
 
-    std::size_t operator()(std::vector<State*> const& v) const noexcept {
-        std::size_t h = 0;
-        for (State* p : v) {
-            h = ankerl::unordered_dense::detail::wyhash::mix(h,
-                reinterpret_cast<uintptr_t>(p)
-            );
-        }
-        return h;
+    std::size_t operator()(const std::vector<State*>& vec) const noexcept {
+
+        auto* data = reinterpret_cast<const char*>(vec.data());
+        std::size_t size_bytes = vec.size() * sizeof(State*);
+        
+        return ankerl::unordered_dense::hash<std::string_view>{}(
+            std::string_view(data, size_bytes)
+        );
     }
 };
 
-// // Fowler-Noll-Vo style hash template
-struct PtrVecHash {
-    template <typename T>
-    std::size_t operator()(const std::vector<T*>& vec) const {
-        std::size_t seed = vec.size();
-        for (auto ptr : vec) {
-            seed ^= std::hash<T*>{}(ptr) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
-        }
-        return seed;
-    }
-};
-
-template<typename K, typename V, typename Hash>
-using HashMap = ankerl::unordered_dense::map<K, V, Hash, std::equal_to<K>>;
+template<typename K, typename V>
+using HashMap = ankerl::unordered_dense::map<K, V>;
 
 // data structures
 
@@ -66,9 +54,9 @@ struct Interval {
     auto operator<=>(const Interval&) const = default;
 };
 
-template <typename T, typename Hash = std::hash<uint64_t>>
+template <typename T>
 struct SparseSet {
-    HashMap<T, uint64_t, Hash> itemToIdx;
+    HashMap<T, uint64_t> itemToIdx;
     std::vector<T> items;
     uint64_t N = 0;
 
@@ -114,7 +102,7 @@ private:
     std::vector<Interval<std::vector<State*>>> stateSetRanges;
     std::stack<DfaState*, std::vector<DfaState*>> stateStk;
 
-    HashMap<std::vector<State*>, DfaState*, PtrVecHash> nfaSetMap;
+    HashMap<std::vector<State*>, DfaState*> nfaSetMap;
 
     // for expandAndClean
     std::unordered_set<State*> nfaVisited;

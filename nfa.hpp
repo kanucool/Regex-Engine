@@ -10,10 +10,10 @@
 
 // constants
 
-using char_t = uint8_t;
+using char_t = char8_t;
 using string = std::string;
 
-constexpr int NFA_ARENA_SIZE = 64;
+constexpr int NFA_ARENA_SIZE = 256;
 
 // data structures
 
