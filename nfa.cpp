@@ -1,26 +1,26 @@
 #include "nfa.hpp"
 
-bool canStart(uint8_t c) {
+bool canStart(char_t c) {
     return PRECEDENCE[c] == Prec::LITERAL || c == '(';
 }
 
-bool canEnd(uint8_t c) {
+bool canEnd(char_t c) {
     if (PRECEDENCE[c] == Prec::LITERAL) return true;
     if (c == '*' || c == '?' || c == '.') return true;
     if (c == '+' || c == ')') return true;
     return false;
 }
 
-std::vector<Token> regexToPostfix(const std::string& expression) {
+std::vector<Token> regexToPostfix(const string& expression) {
 
     std::vector<Token> res;
-    std::stack<uint8_t, std::vector<uint8_t>> stk;
+    std::stack<char_t, std::vector<char_t>> stk;
 
-    auto push = [&stk, &res](uint8_t c) {
+    auto push = [&stk, &res](char_t c) {
         Prec prec = PRECEDENCE[c];
 
         while (!stk.empty() && PRECEDENCE[stk.top()] >= prec) {
-            uint8_t op = stk.top();
+            char_t op = stk.top();
             res.push_back({static_cast<Type>(op), op});
             stk.pop();
         }
@@ -29,7 +29,7 @@ std::vector<Token> regexToPostfix(const std::string& expression) {
     };
 
     auto pop = [&stk, &res]() {
-        uint8_t op = stk.top();
+        char_t op = stk.top();
         if (op == ')') {
             throw std::runtime_error("unmatched (");
         }
@@ -55,11 +55,11 @@ std::vector<Token> regexToPostfix(const std::string& expression) {
     if (!leftAnchor) {
         res.push_back({Type::DOT, '.'});
         res.push_back({Type::STAR, '*'});
-        stk.push(static_cast<uint8_t>(Type::CONCAT));
+        stk.push(static_cast<char_t>(Type::CONCAT));
         stk.push('(');
     }
 
-    for (uint8_t c : expression) {
+    for (char_t c : expression) {
         // backslash and anchors
         if (!escaped && PRECEDENCE[c] == Prec::SPECIAL) {
             if (c == '\\') escaped = true;
@@ -68,7 +68,7 @@ std::vector<Token> regexToPostfix(const std::string& expression) {
         
         // concat operator
         if ((canStart(c) || escaped) && prevCanEnd) {
-            push(static_cast<uint8_t>(Type::CONCAT));
+            push(static_cast<char_t>(Type::CONCAT));
         }
         prevCanEnd = canEnd(c) || escaped;
 
@@ -196,7 +196,7 @@ State* NFA::postfixToNfa(const std::vector<Token>& tokens) {
     return start;
 }
 
-bool simulateNfa(State* start, const std::string& candidate) {
+bool simulateNfa(State* start, const string& candidate) {
     if (!start) return candidate.empty();
 
     std::unordered_set<State*> states = {start};
@@ -236,7 +236,7 @@ bool simulateNfa(State* start, const std::string& candidate) {
         }
     };
 
-    for (uint8_t c : candidate) {
+    for (char_t c : candidate) {
 
         if (states.empty()) return false;
                

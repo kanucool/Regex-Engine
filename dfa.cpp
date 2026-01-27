@@ -36,48 +36,48 @@ void DFA::expandAndClean(std::vector<State*>& nfaStates) {
     }
 
     nfaStates = std::move(newStates);
-    cleanSet(nfaStates);
+    clean(nfaStates);
 }
 
 void DFA::fillNeighbors(DfaState* newState) {
     if (newState->processed) return;
 
-    for (int i = 0; i < 256; i++) {
-        buckets[i].clear();
-    }
+    stateRanges.clear();
     
     for (State* nfaState : newState->nfaStates) {
+        State* out = nfaState->out[0];
+
         if (nfaState->type == NodeType::LITERAL) {
-            buckets[nfaState->c].push_back(nfaState->out[0]);
+            char_t c = nfaState->c;
+            stateRanges.push_back({c, c, out});
         }
         else if (nfaState->type == NodeType::WILDCARD) {
-            State* out = nfaState->out[0];
-
-            for (int i = 0; i < 256; i++) {
-                buckets[i].push_back(out);
-            }
+            stateRanges.push_back({0, MAX_CHAR, out});
         }
         else if (nfaState->type == NodeType::MATCH) {
             newState->isMatch = true;
         }
     }
 
-    for (int i = 0; i < 256; i++) {
-        if (buckets[i].empty()) continue;
+    clean(stateRanges);
+    reconcile(stateRanges, stateSetRanges);
 
-        expandAndClean(buckets[i]);
+    for (auto& [l, r, nfaStates] : stateSetRanges) {
+        if (nfaStates.empty()) continue;
+        expandAndClean(nfaStates);
 
-        newState->neighbors[i] = nfaSetMap[buckets[i]];
+        DfaState* neighborState = nfaSetMap[nfaStates];
         
-        if (!newState->neighbors[i]) {
-            DfaState* neighborState = createEmptyState();
-
-            nfaSetMap[buckets[i]] = neighborState;
-            newState->neighbors[i] = neighborState;
-            neighborState->nfaStates = std::move(buckets[i]);
+        if (!neighborState) {
+            neighborState = createEmptyState();
+            nfaSetMap[nfaStates] = neighborState;
+            neighborState->nfaStates = std::move(nfaStates);
 
             if (!lazy) stateStk.push(neighborState);
+            nfaStates.clear();
         }
+
+        newState->neighbors.push_back({l, r, neighborState});
     }
 
     newState->processed = true;
@@ -113,16 +113,15 @@ DfaState* DFA::makeDfa(State* startState) {
     return ans;
 }
 
-bool DFA::eval(const std::string& candidate) {
+bool DFA::eval(const string& candidate) {
     DfaState* curr = start;
-    if (!curr) return candidate.empty();
+    if (curr == nullptr) return candidate.empty();
 
-    for (uint8_t c : candidate) {
+    for (char_t c : candidate) {
         if (!curr->processed) fillNeighbors(curr);
-        if (!curr->neighbors[c]) return false;
-        curr = curr->neighbors[c];
+        curr = findNeighbor(curr, c);
+        if (curr == nullptr) return false;
     }
-
     if (!curr->processed) fillNeighbors(curr);
     return curr->isMatch;
 }

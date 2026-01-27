@@ -10,11 +10,14 @@
 
 // constants
 
+using char_t = uint8_t;
+using string = std::string;
+
 constexpr int NFA_ARENA_SIZE = 64;
 
 // data structures
 
-enum class Type : uint8_t {
+enum class Type : char_t {
     LITERAL,
     CONCAT,
     STAR = '*',
@@ -24,7 +27,7 @@ enum class Type : uint8_t {
     PLUS = '+'
 };
 
-enum class Prec : uint8_t {
+enum class Prec : char_t {
     LITERAL,
     SPECIAL,
     PARENTHESES,
@@ -35,10 +38,10 @@ enum class Prec : uint8_t {
 
 struct Token {
     Type type;
-    uint8_t c;
+    char_t c;
 };
 
-enum class NodeType : uint8_t {
+enum class NodeType : char_t {
     LITERAL,
     SPLIT,
     MATCH,
@@ -48,11 +51,11 @@ enum class NodeType : uint8_t {
 struct State {
     State* out[2] = {nullptr, nullptr};
     NodeType type;
-    uint8_t c;
+    char_t c;
 
     State() = default;
 
-    State(NodeType type, uint8_t c = 0) : type(type), c(c) {}
+    State(NodeType type, char_t c = 0) : type(type), c(c) {}
 };
 
 struct Fragment {
@@ -68,7 +71,7 @@ private:
 public:
     State* start = nullptr;
 
-    State* makeState(NodeType type, uint8_t c = 0) {
+    State* makeState(NodeType type, char_t c = 0) {
 
         if (arenaIdx >= NFA_ARENA_SIZE) {
             auto uPtr = std::make_unique<State[]>(NFA_ARENA_SIZE);
@@ -94,11 +97,11 @@ public:
 constexpr std::array<Prec, 256> getPrecedenceArray() {
     std::array<Prec, 256> precedence = {};
     
-    precedence[static_cast<uint8_t>(Type::UNION)] = Prec::LOW;
-    precedence[static_cast<uint8_t>(Type::CONCAT)] = Prec::MEDIUM;
-    precedence[static_cast<uint8_t>(Type::STAR)] = Prec::HIGH;
-    precedence[static_cast<uint8_t>(Type::QUESTION)] = Prec::HIGH;
-    precedence[static_cast<uint8_t>(Type::PLUS)] = Prec::HIGH;
+    precedence[static_cast<char_t>(Type::UNION)] = Prec::LOW;
+    precedence[static_cast<char_t>(Type::CONCAT)] = Prec::MEDIUM;
+    precedence[static_cast<char_t>(Type::STAR)] = Prec::HIGH;
+    precedence[static_cast<char_t>(Type::QUESTION)] = Prec::HIGH;
+    precedence[static_cast<char_t>(Type::PLUS)] = Prec::HIGH;
     precedence['('] = precedence[')'] = Prec::PARENTHESES;
     precedence['\\'] = precedence['^'] = Prec::SPECIAL;
     precedence['$'] = Prec::SPECIAL;
@@ -110,8 +113,8 @@ constexpr auto PRECEDENCE = getPrecedenceArray();
 
 // function declarations
 
-bool canStart(uint8_t);
-bool canEnd(uint8_t);
-std::vector<Token> regexToPostfix(const std::string&);
-bool simulateNfa(State*, const std::string&);
+bool canStart(char_t);
+bool canEnd(char_t);
+std::vector<Token> regexToPostfix(const string&);
+bool simulateNfa(State*, const string&);
 
