@@ -1,14 +1,38 @@
 #include "nfa.hpp"
 
 bool canStart(char_t c) {
-    return PRECEDENCE[c] == Prec::LITERAL || c == '(';
+    return PRECEDENCE[c] == Prec::LITERAL || c == '(' || c == '[';
 }
 
 bool canEnd(char_t c) {
     if (PRECEDENCE[c] == Prec::LITERAL) return true;
     if (c == '*' || c == '?' || c == '.') return true;
-    if (c == '+' || c == ')') return true;
+    if (c == '+' || c == ')' || c == ']') return true;
     return false;
+}
+
+Prec getPrecedence(char_t c) {
+    if (static_cast<uint64_t>(c) > 255) return Prec::LITERAL;
+    return PRECEDENCE[c];
+}
+
+void mergeIntervals(std::vector<ClassInterval>& intervals) {
+    if (intervals.empty()) return;
+
+    std::sort(intervals.begin(), intervals.end());
+    uint64_t idx = 0;
+
+    for (auto [l, r] : intervals) {
+        char_t currR = intervals[idx].r;
+        if (l > static_cast<uint64_t>(currR) + 1) {
+            idx++;
+            intervals[idx].l = l;
+            intervals[idx].r = r;
+        }
+        else intervals[idx].r = std::max(currR, r);
+    }
+
+    intervals.resize(idx + 1);
 }
 
 std::vector<Token> regexToPostfix(const string& expression) {
@@ -17,9 +41,9 @@ std::vector<Token> regexToPostfix(const string& expression) {
     std::stack<char_t, std::vector<char_t>> stk;
 
     auto push = [&stk, &res](char_t c) {
-        Prec prec = PRECEDENCE[c];
+        Prec prec = getPrecedence(c);
 
-        while (!stk.empty() && PRECEDENCE[stk.top()] >= prec) {
+        while (!stk.empty() && getPrecedence(stk.top()) >= prec) {
             char_t op = stk.top();
             res.push_back({static_cast<Type>(op), op});
             stk.pop();
@@ -32,7 +56,7 @@ std::vector<Token> regexToPostfix(const string& expression) {
         char_t op = stk.top();
         if (op == ')') {
             throw std::runtime_error("unmatched (");
-        }
+        } 
         res.push_back({static_cast<Type>(op), op});
         stk.pop();
     };
@@ -48,6 +72,9 @@ std::vector<Token> regexToPostfix(const string& expression) {
 
     bool escaped = false;
     bool prevCanEnd = false;
+    bool inClass = false;
+    bool hyphen = false;
+    std::vector<ClassInterval> classSet;  
 
     bool leftAnchor = !expression.empty() && expression[0] == '^';
 
@@ -59,13 +86,49 @@ std::vector<Token> regexToPostfix(const string& expression) {
         stk.push('(');
     }
 
+    uint64_t idx = 0;
+    uint64_t N = expression.size();
+
     for (char_t c : expression) {
-        // backslash and anchors
-        if (!escaped && PRECEDENCE[c] == Prec::SPECIAL) {
+        // anchors
+        idx++;
+        if (c == '^' && idx == 1) continue;
+        if (!escaped && c == '$' && idx == N) continue;
+
+        // backslash
+        if (!escaped && getPrecedence(c) == Prec::SPECIAL) {
             if (c == '\\') escaped = true;
             continue;
-        } 
-        
+        }
+
+        // inside of a character class
+        if (inClass && getPrecedence(c) != Prec::SQUARE_BRACKETS) {
+            if (escaped || hyphen || c != '-' || classSet.empty()) {
+                escaped = false;
+                classSet.push_back({c, c});
+
+                if (hyphen) {
+                    hyphen = false;
+                    auto [l1, r1] = classSet.back();
+                    classSet.pop_back();
+                    auto [l2, r2] = classSet.back();
+                    classSet.pop_back();
+
+                    char_t l = std::min(l1, l2);
+                    char_t r = std::max(r1, r2);
+                    classSet.push_back({l, r});
+                }
+            }
+            else {
+                if (hyphen) {
+                    throw std::runtime_error("Double-hyphen in character class");
+                }
+                hyphen = true;
+            }
+
+            continue;
+        }
+
         // concat operator
         if ((canStart(c) || escaped) && prevCanEnd) {
             push(static_cast<char_t>(Type::CONCAT));
@@ -73,16 +136,38 @@ std::vector<Token> regexToPostfix(const string& expression) {
         prevCanEnd = canEnd(c) || escaped;
 
         // literals
-        if (escaped || PRECEDENCE[c] == Prec::LITERAL) {
+        if (escaped || getPrecedence(c) == Prec::LITERAL) {
             escaped = false;
             Type type = (c == '.') ? Type::DOT : Type::LITERAL;
             res.push_back({type, c});
         }
 
         // parentheses
-        else if (PRECEDENCE[c] == Prec::PARENTHESES) {
+        else if (getPrecedence(c) == Prec::PARENTHESES) {
             if (c == '(') stk.push(c);
             else rightParen();
+        }
+
+        // character class
+        else if (getPrecedence(c) == Prec::SQUARE_BRACKETS) {
+            if (c == '[' && inClass) {
+                throw std::runtime_error("Unexpected '[' in character class");
+            }
+            if (c == ']' && !inClass) {
+                throw std::runtime_error("Unexpected ']' outside of character class");
+            }
+            
+            if (c == '[') inClass = true;
+            else {
+                if (hyphen) {
+                    throw std::runtime_error("Unmatched hyphen in character class");
+                }
+                
+                mergeIntervals(classSet);
+                res.push_back({Type::CLASS, '\0', std::move(classSet)});
+                inClass = false;
+                classSet.clear();
+            }
         }
         
         // operators
@@ -127,10 +212,18 @@ void NFA::concatenate(Fragment& left, Fragment& right) {
 State* NFA::postfixToNfa(const std::vector<Token>& tokens) {
     std::stack<Fragment, std::vector<Fragment>> fragments;
 
-    for (auto [type, c] : tokens) {
-        if (type == Type::LITERAL) {
-            State* s = makeState(NodeType::LITERAL, c);
+    for (auto& [type, c, ranges] : tokens) {
+        if (type == Type::LITERAL || type == Type::DOT) {
+            NodeType nodeT = (type == Type::LITERAL) ?
+                              NodeType::LITERAL :
+                              NodeType::WILDCARD;
+            State* s = makeState(nodeT, c);
             fragments.push({s, {s->out}}); 
+        }
+        else if (type == Type::CLASS) {
+            State* s = makeState(NodeType::RANGES,
+                                 '\0', std::move(ranges));
+            fragments.push({s, {s->out}});  
         }
         else if (type == Type::CONCAT) {
             Fragment right = std::move(fragments.top());
@@ -167,10 +260,6 @@ State* NFA::postfixToNfa(const std::vector<Token>& tokens) {
 
             fragments.push({s, std::move(exits)});
         }
-        else if (type == Type::DOT) {
-            State* s = makeState(NodeType::WILDCARD);
-            fragments.push({s, {s->out}});
-        }
         else if (type == Type::QUESTION) {
             State* s = makeState(NodeType::SPLIT);
             Fragment& fragment = fragments.top();
@@ -194,6 +283,26 @@ State* NFA::postfixToNfa(const std::vector<Token>& tokens) {
 
     start = fragments.top().entry;
     return start;
+}
+
+bool searchRange(std::vector<ClassInterval>& ranges, char_t c) {
+   if (!ranges.size()) return false;
+
+    auto res = std::lower_bound(
+        ranges.begin(),
+        ranges.end(),
+        static_cast<uint64_t>(c),
+        [](const auto& obj, uint64_t c) {
+            return obj.l < c;
+        }
+    );
+
+    if (res == ranges.end() || res->l > c) {
+        if (res == ranges.begin()) return false;
+        --res;
+    }
+
+    return res->r >= c;
 }
 
 bool simulateNfa(State* start, const string& candidate) {
@@ -247,7 +356,9 @@ bool simulateNfa(State* start, const string& candidate) {
         for (State* state : states) {
 
             if ((state->type != NodeType::MATCH && state->c == c)
-                    || state->type == NodeType::WILDCARD) {
+                    || state->type == NodeType::WILDCARD ||
+                    (state->type == NodeType::RANGES &&
+                    searchRange(state->ranges, c))) {
                 newStates.insert(state->out[0]);
             }
         }

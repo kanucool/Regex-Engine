@@ -6,6 +6,7 @@
 #include <stack>
 #include <iostream>
 #include <memory>
+#include <optional>
 #include <unordered_set>
 
 // constants
@@ -20,6 +21,7 @@ constexpr int NFA_ARENA_SIZE = 256;
 enum class Type : char_t {
     LITERAL,
     CONCAT,
+    CLASS,
     STAR = '*',
     UNION = '|',
     DOT = '.',
@@ -31,19 +33,28 @@ enum class Prec : char_t {
     LITERAL,
     SPECIAL,
     PARENTHESES,
+    SQUARE_BRACKETS,
     LOW,
     MEDIUM,
     HIGH
 };
 
+struct ClassInterval {
+    char_t l, r;
+
+    auto operator<=>(const ClassInterval&) const = default;
+};
+
 struct Token {
     Type type;
     char_t c;
+    std::vector<ClassInterval> ranges;
 };
 
 enum class NodeType : char_t {
     LITERAL,
     SPLIT,
+    RANGES,
     MATCH,
     WILDCARD
 };
@@ -52,6 +63,7 @@ struct State {
     State* out[2] = {nullptr, nullptr};
     NodeType type;
     char_t c;
+    std::vector<ClassInterval> ranges;
 
     State() = default;
 
@@ -71,7 +83,8 @@ private:
 public:
     State* start = nullptr;
 
-    State* makeState(NodeType type, char_t c = 0) {
+    State* makeState(NodeType type, char_t c = 0,
+                     std::optional<std::vector<ClassInterval>> ranges = std::nullopt) {
 
         if (arenaIdx >= NFA_ARENA_SIZE) {
             auto uPtr = std::make_unique<State[]>(NFA_ARENA_SIZE);
@@ -80,6 +93,9 @@ public:
         }
         
         stateArenas.back()[arenaIdx] = State(type, c);
+        if (ranges) {
+            stateArenas.back()[arenaIdx].ranges = std::move(ranges.value());
+        }
         return &stateArenas.back()[arenaIdx++];
     }
 
@@ -103,8 +119,8 @@ constexpr std::array<Prec, 256> getPrecedenceArray() {
     precedence[static_cast<char_t>(Type::QUESTION)] = Prec::HIGH;
     precedence[static_cast<char_t>(Type::PLUS)] = Prec::HIGH;
     precedence['('] = precedence[')'] = Prec::PARENTHESES;
-    precedence['\\'] = precedence['^'] = Prec::SPECIAL;
-    precedence['$'] = Prec::SPECIAL;
+    precedence['['] = precedence[']'] = Prec::SQUARE_BRACKETS;
+    precedence['\\'] = Prec::SPECIAL;
 
     return precedence;
 }
@@ -115,6 +131,9 @@ constexpr auto PRECEDENCE = getPrecedenceArray();
 
 bool canStart(char_t);
 bool canEnd(char_t);
+void mergeIntervals(std::vector<ClassInterval>&);
+// search range
+Prec getPrecedence(char_t);
 std::vector<Token> regexToPostfix(const string&);
 bool simulateNfa(State*, const string&);
 

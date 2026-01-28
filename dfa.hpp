@@ -44,6 +44,9 @@ struct ankerl::unordered_dense::hash<std::vector<State*>> {
 template<typename K, typename V>
 using HashMap = ankerl::unordered_dense::map<K, V>;
 
+template<typename T>
+using HashSet = ankerl::unordered_dense::set<T>;
+
 // data structures
 
 template <typename T>
@@ -105,7 +108,7 @@ private:
     HashMap<std::vector<State*>, DfaState*> nfaSetMap;
 
     // for expandAndClean
-    std::unordered_set<State*> nfaVisited;
+    HashSet<State*> nfaVisited;
     std::vector<State*> newStates;
     std::stack<State*, std::vector<State*>> splits;
 

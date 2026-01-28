@@ -5,7 +5,7 @@ void DFA::expandAndClean(std::vector<State*>& nfaStates) {
     nfaVisited.clear();
     newStates.clear();
 
-    std::unordered_set<State*>& lVisited = nfaVisited;
+    HashSet<State*>& lVisited = nfaVisited;
     std::stack<State*, std::vector<State*>>& lSplits = splits;
 
     auto push = [&lVisited, &lSplits](State* state) {
@@ -53,6 +53,11 @@ void DFA::fillNeighbors(DfaState* newState) {
         }
         else if (nfaState->type == NodeType::WILDCARD) {
             stateRanges.push_back({0, MAX_CHAR, out});
+        }
+        else if (nfaState->type == NodeType::RANGES) {
+            for (auto [l, r] : nfaState->ranges) {
+                stateRanges.push_back({l, r, out});
+            }
         }
         else if (nfaState->type == NodeType::MATCH) {
             newState->isMatch = true;
