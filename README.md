@@ -1,10 +1,10 @@
-# Regex-Engine
+m# Regex-Engine
 
 A high-performance Regex engine written from scratch in C++20. It compiles regular expressions into finite state machines, namely an **NFA** (Thompson's Construction) and a **DFA** (Subset Construction).
 
 ## Supports
 * **Operators:** `*` (Kleene Star), `+` (Plus), `?` (Optional), `|` (Union).
-* **Special Characters:** `.` (Wildcard), `()` (Grouping), `\` (Escaping).
+* **Special Characters:** `.` (Wildcard), `()` (Grouping), `\` (Escaping), `^` and `$` (Anchors).
 * **Character Classes:** `[a-z]`, `[0-9]`, `[0-9a-gxyz]`, etc.
 
 ## Features
