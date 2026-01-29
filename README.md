@@ -4,7 +4,8 @@ A high-performance Regex engine written from scratch in C++20. It compiles regul
 
 ## Supports
 * **Operators:** `*` (Kleene Star), `+` (Plus), `?` (Optional), `|` (Union).
-* **Special Characters:** `.` (Wildcard), `()` (Grouping).
+* **Special Characters:** `.` (Wildcard), `()` (Grouping), `\` (Escaping).
+* **Character Classes:** `[a-z]`, `[0-9]`, `[0-9a-gxyz]`, etc.
 
 ## Features
 
@@ -44,7 +45,6 @@ make
 * [Shunting Yard Algorithm](https://en.wikipedia.org/wiki/Shunting_yard_algorithm)
 
 ## Roadmap
-* Character classes ([a-z], [0-9], etc)
 * Comprehensive test suite
 * Benchmark against std::regex
 * Refactor file structure
