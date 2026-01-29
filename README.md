@@ -1,4 +1,4 @@
-m# Regex-Engine
+# Regex-Engine
 
 A high-performance Regex engine written from scratch in C++20. It compiles regular expressions into finite state machines, namely an **NFA** (Thompson's Construction) and a **DFA** (Subset Construction).
 
