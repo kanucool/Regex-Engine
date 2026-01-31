@@ -5,7 +5,7 @@ A high-performance Regex engine written from scratch in C++20. It compiles regul
 ## Supports
 * **Operators:** `*` (Kleene Star), `+` (Plus), `?` (Optional), `|` (Union).
 * **Special Characters:** `.` (Wildcard), `()` (Grouping), `\` (Escaping), `^` and `$` (Anchors).
-* **Character Classes:** `[a-z]`, `[0-9]`, `[0-9a-gxyz], [🚀-🚢]`, etc.
+* **Character Classes:** `[a-z]`, `[0-9]`, `[0-9a-gxyz]`, `[🚀-🚢]`, etc.
 * **Encoding:** Full UTF-8 Support.
 
 ## Features
@@ -20,20 +20,20 @@ using string = UTF8View;
 ### Lazy DFA Construction (Optional)
 Prevents exponential state explosion during construction. States are initialized as needed during matching.
 
-ex: (a|b)*a(a|b)(a|b)(a|b)(a|b)(a|b)(a|b)(a|b)(a|b)(a|b)(a|b)(a|b)(a|b)(a|b)(a|b)(a|b)(a|b)(a|b)(a|b)(a|b)
+ex: ``^.*a...................$``
 
-The above adversarial regular expression takes 2.45s and 1million+ states to construct a DFA for. DFA construction time/memory increases exponentially with the \# of "(a|b)"s.
+The above adversarial regular expression takes 1.50s and 1million+ states to construct a DFA for. DFA construction time/memory doubles per trailing ".".
 
 **Construction Speed:** Reduces compilation time for the above adversarial input by **99.99%**.
 
 Measured on the above regex, with a 16.5k-character long candidate string used for matching.
 | Metric | Eager DFA | Lazy DFA | Impact |
 | :--- | :--- | :--- | :--- |
-| **Construction Time** | 2.45s | **100µs** | **24,500x Faster Startup** |
-| **Matching (Cold)** | 42 µs | 142 µs | State initialization overhead |
-| **Matching (Hot)** | 38 µs | **32 µs** | Performant after warm-up |
+| **Construction Time** | 1.50s | **81µs** | **18,500x Faster Startup** |
+| **Matching (Cold)** | 99 µs | 174 µs | State initialization overhead |
+| **Matching (Hot)** | 87 µs | **70 µs** | Performant after warm-up |
 
-**Runtime Trade-off:** 256x theoretical matching slowdown by a factor of |Σ| (256 for ASCII) in state initialization, though a one-time cost and extremely rare in practice.
+**Runtime Trade-off:** State initialization has some overhead depending on the complexity of the regular expression (ex. complex character classes). In testing, slowdown has been 2x to 5x in the worst case, but could theoretically reach up to 200-500x, though extremely rare in practice (I have yet to come up with a case where this occurs).
 
 Due to the tradeoff between construction and matching times, this feature is optional, though highly recommended for memory-critical applications. Choose eager construction if DFA construction time is irrelevant to your use-case, though be aware that even small regular expressions could take until the heat death of the universe to eagerly construct.
 
