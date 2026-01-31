@@ -5,9 +5,17 @@ A high-performance Regex engine written from scratch in C++20. It compiles regul
 ## Supports
 * **Operators:** `*` (Kleene Star), `+` (Plus), `?` (Optional), `|` (Union).
 * **Special Characters:** `.` (Wildcard), `()` (Grouping), `\` (Escaping), `^` and `$` (Anchors).
-* **Character Classes:** `[a-z]`, `[0-9]`, `[0-9a-gxyz]`, etc.
+* **Character Classes:** `[a-z]`, `[0-9]`, `[0-9a-gxyz], [🚀-🚢]`, etc.
+* **Encoding:** Full UTF-8 Support.
 
 ## Features
+
+### UTF-8 std::string Parsing Iterator
+Uses a custom `UTF8View` iterator to parse raw bytes into UTF-8 during iteration to reduce memory usage and avoid copying the underlying std::string. You can easily switch between UTF-8 parsing and ASCII (std::string) by modifying the alias in ``nfa.hpp``:
+```cpp
+// using string = std::string;
+using string = UTF8View;
+```
 
 ### Lazy DFA Construction (Optional)
 Prevents exponential state explosion during construction. States are initialized as needed during matching.
@@ -45,7 +53,8 @@ make
 * [Shunting Yard Algorithm](https://en.wikipedia.org/wiki/Shunting_yard_algorithm)
 
 ## Roadmap
+In descending order of priority:
 * Comprehensive test suite
-* Benchmark against std::regex
 * Refactor file structure
-* Extend support for Unicode
+* Benchmark against std::regex
+* Support Unicode character class escapes
