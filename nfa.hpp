@@ -11,8 +11,8 @@
 
 // constants
 
-using char_t = char8_t;
-using string = std::string;
+using char_t = char32_t;
+//using string = std::string;
 
 constexpr int NFA_ARENA_SIZE = 256;
 
@@ -75,6 +75,79 @@ struct Fragment {
     std::vector<State**> exits;
 };
 
+struct UTF8View : public std::string_view {
+    using std::string_view::string_view;
+
+    UTF8View(const std::string& s) : std::string_view(s) {}
+
+    UTF8View(std::string&&) = delete;
+
+    struct Iterator {
+        const char* ptr;
+
+        inline char8_t getNumBytes(char8_t c) const {
+            if (!(c & 0x80)) return 1;
+            if (!(c & 0x20)) return 2;
+            if (!(c & 0x10)) return 3;
+            if ((c & 0xF0) == 0xF0) return 4;
+            // invalid utf8, fallback to 1byte
+            return 1;
+        }
+
+        inline char_t getChar() const {
+            uint8_t numBytes = getNumBytes(*ptr);
+
+            // one byte
+            char_t c = *ptr;
+            if (numBytes == 1) return c;
+
+            // two bytes
+            char_t c2 = ptr[1] & 0x3F;
+            if (numBytes == 2) return (c & 0x1F) << 6 | c2;
+            
+            // three bytes
+            char_t c3 = ptr[2] & 0x3F;
+            if (numBytes == 3) return (c & 0x0F) << 12 | c2 << 6 | c3;
+            
+            // four bytes
+            char_t c4 = ptr[3] & 0x3F;
+            return (c & 0x07) << 18 | c2 << 12 | c3 << 6 | c4;
+        }
+
+        char_t operator*() const {
+            return getChar();
+        }
+
+        Iterator& operator++() {
+            ptr += getNumBytes(*ptr);
+            return *this;
+        }
+
+        bool operator==(const Iterator& other) const {
+            return ptr == other.ptr;
+        }
+
+        bool operator!=(const Iterator& other) const {
+            return ptr != other.ptr;
+        }     
+    };
+
+    Iterator begin() const {
+        return Iterator{data()};
+    }
+
+    Iterator end() const {
+        return Iterator{data() + size()};
+    }
+
+    void pop_back() {
+        remove_suffix(1);
+    }
+};
+
+// IMPORTANT
+using string = UTF8View;
+
 class NFA {
 private:
     int arenaIdx = NFA_ARENA_SIZE;
@@ -131,9 +204,10 @@ constexpr auto PRECEDENCE = getPrecedenceArray();
 
 bool canStart(char_t);
 bool canEnd(char_t);
-void mergeIntervals(std::vector<ClassInterval>&);
-// search range
 Prec getPrecedence(char_t);
-std::vector<Token> regexToPostfix(const string&);
+bool escapedAtEnd(const string&); 
+void mergeIntervals(std::vector<ClassInterval>&);
+std::vector<Token> regexToPostfix(string);
 bool simulateNfa(State*, const string&);
+std::vector<char32_t> convertToUtf32(const std::string&);
 

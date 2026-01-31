@@ -1,19 +1,29 @@
 #include "nfa.hpp"
 
+Prec getPrecedence(char_t c) {
+    if (static_cast<uint64_t>(c) > 255) return Prec::LITERAL;
+    return PRECEDENCE[c];
+}
+
 bool canStart(char_t c) {
-    return PRECEDENCE[c] == Prec::LITERAL || c == '(' || c == '[';
+    return getPrecedence(c) == Prec::LITERAL || c == '(' || c == '[';
 }
 
 bool canEnd(char_t c) {
-    if (PRECEDENCE[c] == Prec::LITERAL) return true;
+    if (getPrecedence(c) == Prec::LITERAL) return true;
     if (c == '*' || c == '?' || c == '.') return true;
     if (c == '+' || c == ')' || c == ']') return true;
     return false;
 }
 
-Prec getPrecedence(char_t c) {
-    if (static_cast<uint64_t>(c) > 255) return Prec::LITERAL;
-    return PRECEDENCE[c];
+bool escapedAtEnd(const string& expression) {
+    if (expression.size() < 2) return false;
+
+    uint64_t numSlashes = 0;
+    int64_t idx = expression.size() - 2;
+
+    while (idx >= 0 && expression[idx--] == '\\') numSlashes++;
+    return numSlashes & 1;
 }
 
 void mergeIntervals(std::vector<ClassInterval>& intervals) {
@@ -35,7 +45,8 @@ void mergeIntervals(std::vector<ClassInterval>& intervals) {
     intervals.resize(idx + 1);
 }
 
-std::vector<Token> regexToPostfix(const string& expression) {
+std::vector<Token> regexToPostfix(string expression) {
+    if (expression.empty()) return {};
 
     std::vector<Token> res;
     std::stack<char_t, std::vector<char_t>> stk;
@@ -76,7 +87,10 @@ std::vector<Token> regexToPostfix(const string& expression) {
     bool hyphen = false;
     std::vector<ClassInterval> classSet;  
 
-    bool leftAnchor = !expression.empty() && expression[0] == '^';
+    bool leftAnchor = expression[0] == '^';
+    bool rightAnchor = expression.back() == '$' && !escapedAtEnd(expression);
+
+    if (rightAnchor) expression.pop_back();
 
     // if there is no ^ anchor, start with .*(
     if (!leftAnchor) {
@@ -86,14 +100,12 @@ std::vector<Token> regexToPostfix(const string& expression) {
         stk.push('(');
     }
 
-    uint64_t idx = 0;
-    uint64_t N = expression.size();
+    bool start = true;
 
     for (char_t c : expression) {
         // anchors
-        idx++;
-        if (c == '^' && idx == 1) continue;
-        if (!escaped && c == '$' && idx == N) continue;
+        if (c == '^' && start) {start = false; continue;}
+        start = false;
 
         // backslash
         if (!escaped && getPrecedence(c) == Prec::SPECIAL) {
@@ -185,7 +197,7 @@ std::vector<Token> regexToPostfix(const string& expression) {
     }
     
     // if there is no right anchor $, append .*
-    if (expression.empty() || expression.back() != '$') {
+    if (!rightAnchor) {
         res.push_back({Type::DOT, '.'}); 
         res.push_back({Type::STAR, '*'});
         if (prevCanEnd) {
@@ -376,5 +388,41 @@ bool simulateNfa(State* start, const string& candidate) {
     }
 
     return false;
+}
+
+std::vector<char32_t> convertToUtf32(const std::string& input) {
+    std::vector<char32_t> res;
+    uint8_t remainingBytes = 0;
+    char32_t curr = 0;
+    
+    for (char c : input) {
+        if (!remainingBytes) {
+            if (!(c & 0x80)) {
+                res.push_back(c);
+                continue;
+            }
+            else if (!(c & 0x20)) {
+                remainingBytes = 2;
+                c &= 0x1F;;
+            }
+            else if (!(c & 0x10)) {
+                remainingBytes = 3;
+                c &= 0x0F;
+            }
+            else {
+                remainingBytes = 4;
+                c &= 0x07;
+            }
+        }
+        
+        curr = (curr << 6) | (c & 0x3F);
+
+        if (!--remainingBytes) {
+            res.push_back(curr);
+            curr = 0;
+        }
+    }
+    
+    return res;
 }
 

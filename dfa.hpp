@@ -172,7 +172,8 @@ public:
         for (auto& [l, r, item] : intervals) {
             line.push_back({l, N, ADD});
             line.push_back({static_cast<uint64_t>(r) + 1,
-                            N++, REMOVE});
+                            N, REMOVE}); 
+            N++;
         }
         
         if (line.size() > 2) {
@@ -187,12 +188,14 @@ public:
         uint64_t lastPoint = line[0].point;
         
         for (auto [point, idx, type] : line) {
-            if (itemSet.N && point > lastPoint) {
-                idxRes.push_back({
-                    static_cast<char_t>(lastPoint),
-                    static_cast<char_t>(point - 1),
-                    itemSet.items
-                });
+            if (point > lastPoint) {
+                if (itemSet.N) {
+                    idxRes.push_back({
+                        static_cast<char_t>(lastPoint),
+                        static_cast<char_t>(point - 1),
+                        itemSet.items
+                    });
+                }
                 lastPoint = point;
             }
             
@@ -201,7 +204,7 @@ public:
             }
             else if (!--freqs[idx]) itemSet.remove(idx);
         } 
-        
+
         for (auto& [l, r, vec] : idxRes) {
             std::vector<T> mapped;
             mapped.reserve(vec.size());
@@ -218,7 +221,7 @@ public:
     } 
 
     DfaState* findNeighbor(DfaState* curr, char_t c) {
-        auto& neighbors = curr->neighbors;
+        auto& neighbors = curr->neighbors; 
         if (!neighbors.size()) return nullptr;
 
         auto res = std::lower_bound(
