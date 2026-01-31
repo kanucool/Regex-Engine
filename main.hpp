@@ -27,7 +27,7 @@ private:
 public:
     Regex(const std::string& regex, bool makeDfa = false, bool lazy = false) {
         this->regex = regex;
-        nfa = NFA(regexToPostfix(std::move(regex));
+        nfa = NFA(regexToPostfix(std::move(regex)));
         if (makeDfa) dfa = DFA(nfa, lazy);
     }
 
